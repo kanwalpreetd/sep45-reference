@@ -4,7 +4,13 @@ on:
   push:
     branches:
       - main
+    paths:
+      - "contracts/**"
+      - ".github/workflows/contract_build.yml"
   pull_request:
+    paths:
+      - "contracts/**"
+      - ".github/workflows/contract_build.yml"
   workflow_call: # allows this workflow to be called from another workflow
 
 env:
@@ -36,20 +42,21 @@ jobs:
         with:
           cache-targets: wasm32v1-none
 
-      - name: Install cargo-audit
-        run: |
-          if ! command -v cargo-audit &> /dev/null; then
-            cargo install cargo-audit
-          fi
-
       - name: Format check
         run: cargo +${RUST_TOOLCHAIN} fmt -- --check
 
       - name: Lint with Clippy
         run: cargo +${RUST_TOOLCHAIN} clippy --all-targets --all-features -- -D warnings
 
-      - name: Security audit
-        run: cargo +${RUST_TOOLCHAIN} audit
+      - name: Cargo deny check
+        uses: EmbarkStudios/cargo-deny-action@3fd3802e88374d3fe9159b834c7714ec57d6c979
+        env:
+          RUSTC_WRAPPER: ""
+        with:
+          rust-version: ${{ env.RUST_TOOLCHAIN }}
+          manifest-path: ./contracts/Cargo.toml
+          command: check
+          command-arguments: advisories
 
       - name: Run tests
         run: cargo +${RUST_TOOLCHAIN} test --all-features -- --nocapture
